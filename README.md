@@ -7,7 +7,18 @@
 
 ## Overview
 
-This example demonstrates basic usage of I2C driver by reading and writing from a I2C connected sensor:
+This example started as Espressif's basic I2C master example. It has been
+refactored for a course module about testing and quality assurance for embedded
+systems:
+
+- `sensor_bus` is the small interface between sensor logic and hardware.
+- `mpu9250` contains testable sensor behavior.
+- `fake_sensor_bus` is a controllable mock for unit tests.
+- `app_net` optionally publishes the probe result over WiFi + MQTT.
+- `tools/node_red` contains a local Mosquitto + Node-RED fake backend.
+
+The regular firmware still demonstrates basic usage of the I2C driver by
+reading and writing registers for an I2C-connected sensor.
 
 If you have a new I2C application to go (for example, read the temperature data from external sensor with I2C interface), try this as a basic template, then add your own code.
 
@@ -42,9 +53,131 @@ See the [Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/l
 
 ```bash
 I (328) example: I2C initialized successfully
-I (338) example: WHO_AM_I = 71
+I (338) example: MPU9250 probe status=ok WHO_AM_I=0x71 bus_error=ESP_OK
+I (338) example: MPU9250 reset command sent
 I (338) example: I2C de-initialized successfully
 ```
+
+## Run the Sensor Unit Tests
+
+The test app under `test_apps/sensor_unit` uses Unity and the fake sensor bus.
+It verifies the behavior without needing a real MPU9250. The tests run once automatically on boot.
+
+```bash
+cd test_apps/sensor_unit
+. "$HOME/.espressif/tools/activate_idf_v6.0.sh"
+idf.py set-target esp32c6
+idf.py -p PORT build flash monitor
+```
+
+The same test app is also a good starting point for host/Linux target testing
+when the local ESP-IDF environment supports it.
+
+If ESP-IDF reports that the project was configured with `python3` but `python`
+is currently active, or the opposite, clean once and keep using the same command
+form afterwards:
+
+```bash
+idf.py fullclean
+```
+
+## Enable WiFi + MQTTS Telemetry
+
+Telemetry is disabled by default so the I2C/sensor example stays small. Enable it with `menuconfig`:
+
+```bash
+. "$HOME/.espressif/tools/activate_idf_v6.0.sh"
+idf.py menuconfig
+```
+
+Set these values under `Example Configuration -> WiFi and MQTT telemetry`:
+
+- `Enable WiFi + MQTT telemetry`
+- `WiFi SSID`
+- `WiFi password`
+- `MQTTS broker URI`, for example `mqtts://192.168.1.10:8883`
+- `SNTP server for TLS certificate validation`, for example `pool.ntp.org`
+- `Device ID`, for example `esp32c6-01`
+
+In the text menu, use `/` to search for the symbol name if you cannot find it:
+
+- `EXAMPLE_ENABLE_MQTT_TELEMETRY`
+- `EXAMPLE_WIFI_SSID`
+- `EXAMPLE_WIFI_PASSWORD`
+- `EXAMPLE_MQTT_BROKER_URI`
+- `EXAMPLE_SNTP_SERVER`
+- `EXAMPLE_DEVICE_ID`
+
+## Size-Oriented Build Settings
+
+For the WiFi + MQTT firmware, use these `menuconfig` paths:
+
+- `Partition Table -> Partition Table -> Single factory app, large`
+- `Compiler options -> Optimization Level -> Optimize for size (-Os)`
+- `Component config -> ESP-MQTT Configurations -> MQTT over SSL -> enabled`
+- `Component config -> ESP-MQTT Configurations -> MQTT over WebSocket -> disabled`
+- `Component config -> IEEE 802.15.4 -> Enable IEEE 802.15.4 -> disabled`
+- `Component config -> Wi-Fi -> WiFi SoftAP Support -> disabled`
+- `Component config -> Wi-Fi -> WiFi Enterprise Support -> disabled`
+- `Component config -> Wi-Fi -> WPA3 SAE support -> disabled`
+
+The project also includes `sdkconfig.defaults` with these defaults. If an old
+`sdkconfig` already exists, either change it through `menuconfig` or regenerate
+it from defaults:
+
+```bash
+idf.py fullclean
+rm sdkconfig
+idf.py build
+```
+
+The firmware publishes to:
+
+```text
+iot25/<device_id>/sensor/mpu9250
+```
+
+Example payload:
+
+```json
+{"device_id":"esp32c6-01","seq":1,"who_am_i":113,"status":"ok"}
+```
+
+## Run the Fake Backend
+
+Mosquitto listens on `1883` for the internal Node-RED flow and on `8883` for
+ESP32-C6 clients using MQTTS. The broker presents a server certificate on
+`8883`; the ESP32-C6 validates that certificate with the embedded CA. This is
+server-authenticated TLS, not mutual TLS, so Mosquitto does not request a client
+certificate from the ESP32-C6.
+
+### Generate local demo certificates before the first backend run from the project root:
+In this example, 192.168.1.10 is the IP-adress of the computer where the MQTT-broker runs.
+
+```bash
+tools/node_red/generate_tls_certs.sh 192.168.1.10
+idf.py build
+```
+
+The firmware embeds
+`components/app_net/certs/ca.crt` and uses it to validate the broker certificate
+served from `tools/node_red/certs/server.crt`.
+
+Start Mosquitto and Node-RED:
+
+```bash
+cd tools/node_red
+docker compose up
+```
+
+Open Node-RED at `http://localhost:1880`. The included flow subscribes to
+`iot25/+/sensor/mpu9250`, shows incoming messages in the debug sidebar, and
+publishes a fake backend response to `iot25/<device_id>/backend/status`.
+
+MQTTS certificate validation also needs a correct device clock. After WiFi
+connects, the firmware waits for SNTP before starting MQTT. If your classroom
+network blocks NTP, use a reachable local NTP/SNTP server in `menuconfig` or the
+TLS handshake will fail even when the CA and broker IP are correct.
 
 ## Troubleshooting
 

@@ -14,8 +14,11 @@
 #include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "app_net.h"
 #include "esp_log.h"
 #include "driver/i2c_master.h"
+#include "mpu9250.h"
+#include "sensor_bus.h"
 
 static const char *TAG = "example";
 
@@ -27,26 +30,27 @@ static const char *TAG = "example";
 #define I2C_MASTER_RX_BUF_DISABLE   0                           /*!< I2C master doesn't need buffer */
 #define I2C_MASTER_TIMEOUT_MS       1000
 
-#define MPU9250_SENSOR_ADDR         0x68        /*!< Address of the MPU9250 sensor */
-#define MPU9250_WHO_AM_I_REG_ADDR   0x75        /*!< Register addresses of the "who am I" register */
-#define MPU9250_PWR_MGMT_1_REG_ADDR 0x6B        /*!< Register addresses of the power management register */
-#define MPU9250_RESET_BIT           7
+typedef struct {
+    i2c_master_dev_handle_t dev_handle;
+} i2c_sensor_bus_ctx_t;
 
-/**
- * @brief Read a sequence of bytes from a MPU9250 sensor registers
- */
-static esp_err_t mpu9250_register_read(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr, uint8_t *data, size_t len)
+static esp_err_t i2c_sensor_bus_read_reg(void *ctx,
+                                         uint8_t dev_addr,
+                                         uint8_t reg_addr,
+                                         uint8_t *data,
+                                         size_t len)
 {
-    return i2c_master_transmit_receive(dev_handle, &reg_addr, 1, data, len, I2C_MASTER_TIMEOUT_MS);
+    (void)dev_addr;
+    i2c_sensor_bus_ctx_t *i2c_ctx = (i2c_sensor_bus_ctx_t *)ctx;
+    return i2c_master_transmit_receive(i2c_ctx->dev_handle, &reg_addr, 1, data, len, I2C_MASTER_TIMEOUT_MS);
 }
 
-/**
- * @brief Write a byte to a MPU9250 sensor register
- */
-static esp_err_t mpu9250_register_write_byte(i2c_master_dev_handle_t dev_handle, uint8_t reg_addr, uint8_t data)
+static esp_err_t i2c_sensor_bus_write_reg(void *ctx, uint8_t dev_addr, uint8_t reg_addr, uint8_t value)
 {
-    uint8_t write_buf[2] = {reg_addr, data};
-    return i2c_master_transmit(dev_handle, write_buf, sizeof(write_buf), I2C_MASTER_TIMEOUT_MS);
+    (void)dev_addr;
+    i2c_sensor_bus_ctx_t *i2c_ctx = (i2c_sensor_bus_ctx_t *)ctx;
+    uint8_t write_buf[2] = {reg_addr, value};
+    return i2c_master_transmit(i2c_ctx->dev_handle, write_buf, sizeof(write_buf), I2C_MASTER_TIMEOUT_MS);
 }
 
 /**
@@ -74,18 +78,37 @@ static void i2c_master_init(i2c_master_bus_handle_t *bus_handle, i2c_master_dev_
 
 void app_main(void)
 {
-    uint8_t data[2];
     i2c_master_bus_handle_t bus_handle;
     i2c_master_dev_handle_t dev_handle;
     i2c_master_init(&bus_handle, &dev_handle);
     ESP_LOGI(TAG, "I2C initialized successfully");
 
-    /* Read the MPU9250 WHO_AM_I register, on power up the register should have the value 0x71 */
-    ESP_ERROR_CHECK(mpu9250_register_read(dev_handle, MPU9250_WHO_AM_I_REG_ADDR, data, 1));
-    ESP_LOGI(TAG, "WHO_AM_I = %X", data[0]);
+    i2c_sensor_bus_ctx_t i2c_ctx = {
+        .dev_handle = dev_handle,
+    };
+    sensor_bus_t sensor_bus = {
+        .ctx = &i2c_ctx,
+        .read_reg = i2c_sensor_bus_read_reg,
+        .write_reg = i2c_sensor_bus_write_reg,
+    };
 
-    /* Demonstrate writing by resetting the MPU9250 */
-    ESP_ERROR_CHECK(mpu9250_register_write_byte(dev_handle, MPU9250_PWR_MGMT_1_REG_ADDR, 1 << MPU9250_RESET_BIT));
+    mpu9250_probe_result_t probe = mpu9250_probe(&sensor_bus);
+    ESP_LOGI(TAG,
+             "MPU9250 probe status=%s WHO_AM_I=0x%02X bus_error=%s",
+             mpu9250_status_to_string(probe.status),
+             probe.who_am_i,
+             esp_err_to_name(probe.bus_error));
+
+    if (probe.status == MPU9250_STATUS_OK) {
+        ESP_ERROR_CHECK(mpu9250_reset(&sensor_bus));
+        ESP_LOGI(TAG, "MPU9250 reset command sent");
+    }
+
+#if CONFIG_EXAMPLE_ENABLE_MQTT_TELEMETRY
+    ESP_ERROR_CHECK(app_net_start());
+    ESP_ERROR_CHECK(app_net_publish_mpu9250_probe(1, &probe));
+    vTaskDelay(pdMS_TO_TICKS(1000));
+#endif
 
     ESP_ERROR_CHECK(i2c_master_bus_rm_device(dev_handle));
     ESP_ERROR_CHECK(i2c_del_master_bus(bus_handle));

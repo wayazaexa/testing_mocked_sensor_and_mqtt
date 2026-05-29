@@ -1,2 +1,3 @@
 idf_component_register(SRCS "i2c_basic_example_main.c"
-                       INCLUDE_DIRS ".")
+                       INCLUDE_DIRS "."
+                       REQUIRES esp_driver_i2c mpu9250 sensor_bus app_net)

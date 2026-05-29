@@ -41,6 +41,11 @@ managed_components/
 # If ESP-IDF tools are installed/referenced locally to the project
 .espressif/
 
+# Local demo TLS material generated for the Node-RED/Mosquitto backend.
+tools/node_red/certs/*
+!tools/node_red/certs/.gitkeep
+components/app_net/certs/ca.crt
+
 # CMake generated files
 CMakeCache.txt
 CMakeFiles/
@@ -76,3 +81,4 @@ Desktop.ini
 *.workspace # General workspace files, can be from various tools
 *.suo       # Visual Studio Solution User Options
 *.sln.docstates # Visual Studio
+.vscode/

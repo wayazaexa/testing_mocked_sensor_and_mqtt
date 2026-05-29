@@ -1,0 +1,27 @@
+# ESP32-C6 teaching defaults for this project.
+#
+# Keep these settings in version control so every student starts from the same
+# size-conscious configuration. Existing sdkconfig files may need one
+# `python "$IDF_PATH/tools/idf.py" fullclean` + `rm sdkconfig` to fully reload
+# defaults.
+
+# The WiFi + MQTT firmware is larger than Espressif's tiny I2C example.
+# Use the 2 MB single-app partition table instead of the default 1 MB app slot.
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+
+# Prefer size over debug-friendly code generation for classroom firmware.
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y
+
+# Use MQTTS to a local Mosquitto broker in the classroom.
+# The firmware validates the broker with components/app_net/certs/ca.crt.
+CONFIG_MQTT_TRANSPORT_SSL=y
+# CONFIG_MQTT_TRANSPORT_WEBSOCKET is not set
+
+# This course project uses WiFi STA, not 802.15.4/Thread.
+# CONFIG_IEEE802154_ENABLED is not set
+
+# Keep WiFi focused on station-mode WPA2 for the first MQTT lesson.
+# CONFIG_ESP_WIFI_ENABLE_WPA3_SAE is not set
+# CONFIG_ESP_WIFI_ENABLE_WPA3_OWE_STA is not set
+# CONFIG_ESP_WIFI_SOFTAP_SUPPORT is not set
+# CONFIG_ESP_WIFI_ENTERPRISE_SUPPORT is not set

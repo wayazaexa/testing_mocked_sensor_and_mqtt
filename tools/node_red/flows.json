@@ -1,0 +1,115 @@
+[
+  {
+    "id": "iot25-tab",
+    "type": "tab",
+    "label": "IoT25 Fake Backend",
+    "disabled": false,
+    "info": ""
+  },
+  {
+    "id": "mqtt-broker-local",
+    "type": "mqtt-broker",
+    "name": "Local Mosquitto",
+    "broker": "mosquitto",
+    "port": "1883",
+    "clientid": "node-red-fake-backend",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true
+  },
+  {
+    "id": "mqtt-in-mpu9250",
+    "type": "mqtt in",
+    "z": "iot25-tab",
+    "name": "MPU9250 telemetry",
+    "topic": "iot25/+/sensor/mpu9250",
+    "qos": "1",
+    "datatype": "json",
+    "broker": "mqtt-broker-local",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 170,
+    "y": 120,
+    "wires": [
+      [
+        "function-backend-response",
+        "debug-telemetry"
+      ]
+    ]
+  },
+  {
+    "id": "function-backend-response",
+    "type": "function",
+    "z": "iot25-tab",
+    "name": "Build fake backend response",
+    "func": "const deviceId = msg.payload.device_id || 'unknown';\nconst sourceTopic = msg.topic;\nmsg.topic = `iot25/${deviceId}/backend/status`;\nmsg.payload = {\n    received_at: new Date().toISOString(),\n    accepted: msg.payload.status === 'ok',\n    source_topic: sourceTopic,\n    sensor: msg.payload\n};\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 430,
+    "y": 120,
+    "wires": [
+      [
+        "mqtt-out-status",
+        "debug-response"
+      ]
+    ]
+  },
+  {
+    "id": "mqtt-out-status",
+    "type": "mqtt out",
+    "z": "iot25-tab",
+    "name": "Backend status",
+    "topic": "",
+    "qos": "1",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "mqtt-broker-local",
+    "x": 700,
+    "y": 100,
+    "wires": []
+  },
+  {
+    "id": "debug-telemetry",
+    "type": "debug",
+    "z": "iot25-tab",
+    "name": "Incoming sensor JSON",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.status",
+    "statusType": "msg",
+    "x": 440,
+    "y": 180,
+    "wires": []
+  },
+  {
+    "id": "debug-response",
+    "type": "debug",
+    "z": "iot25-tab",
+    "name": "Fake backend response",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "x": 710,
+    "y": 160,
+    "wires": []
+  }
+]

@@ -22,4 +22,50 @@ menu "Example Configuration"
         help
             I2C Speed of Master device.
 
+    menu "WiFi and MQTT telemetry"
+
+        config EXAMPLE_ENABLE_MQTT_TELEMETRY
+            bool "Enable WiFi + MQTT telemetry"
+            default n
+            help
+                Connect to WiFi and publish the MPU9250 probe result to MQTT.
+
+        config EXAMPLE_WIFI_SSID
+            string "WiFi SSID"
+            default "iot25"
+
+        config EXAMPLE_WIFI_PASSWORD
+            string "WiFi password"
+            default ""
+
+        config EXAMPLE_WIFI_MAXIMUM_RETRY
+            int "WiFi retry attempts"
+            default 5
+
+        config EXAMPLE_WIFI_CONNECT_TIMEOUT_MS
+            int "WiFi connection timeout in milliseconds"
+            default 15000
+
+        config EXAMPLE_MQTT_BROKER_URI
+            string "MQTTS broker URI"
+            default "mqtts://192.168.1.10:8883"
+
+        config EXAMPLE_MQTT_CONNECT_TIMEOUT_MS
+            int "MQTT connect timeout in milliseconds"
+            default 10000
+
+        config EXAMPLE_SNTP_SERVER
+            string "SNTP server for TLS certificate validation"
+            default "pool.ntp.org"
+
+        config EXAMPLE_SNTP_SYNC_TIMEOUT_MS
+            int "SNTP sync timeout in milliseconds"
+            default 15000
+
+        config EXAMPLE_DEVICE_ID
+            string "Device ID"
+            default "esp32c6-01"
+
+    endmenu
+
 endmenu

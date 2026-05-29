@@ -1,0 +1,6 @@
+# Keep the test firmware small and deterministic.
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y
+
+# The sensor unit test app does not use radios.
+# CONFIG_ESP_WIFI_ENABLED is not set
+# CONFIG_IEEE802154_ENABLED is not set
