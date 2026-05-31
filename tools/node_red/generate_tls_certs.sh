@@ -6,6 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CERT_DIR="$SCRIPT_DIR/certs"
 APP_CA="$PROJECT_DIR/components/app_net/certs/ca.crt"
+NOT_BEFORE="$(date -u -d '1 day ago' +%Y%m%d%H%M%SZ)"
+NOT_AFTER="$(date -u -d '10 years' +%Y%m%d%H%M%SZ)"
 
 mkdir -p "$CERT_DIR" "$(dirname "$APP_CA")"
 
@@ -13,7 +15,8 @@ openssl genrsa -out "$CERT_DIR/demo-ca.key" 2048
 openssl req -x509 -new -nodes \
     -key "$CERT_DIR/demo-ca.key" \
     -sha256 \
-    -days 3650 \
+    -not_before "$NOT_BEFORE" \
+    -not_after "$NOT_AFTER" \
     -out "$CERT_DIR/ca.crt" \
     -subj "/CN=IoT25-Demo-CA"
 
@@ -30,7 +33,8 @@ openssl x509 -req \
     -CAkey "$CERT_DIR/demo-ca.key" \
     -CAcreateserial \
     -out "$CERT_DIR/server.crt" \
-    -days 3650 \
+    -not_before "$NOT_BEFORE" \
+    -not_after "$NOT_AFTER" \
     -sha256 \
     -copy_extensions copy
 
